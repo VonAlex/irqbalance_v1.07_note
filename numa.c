@@ -151,7 +151,7 @@ static gint compare_node(gconstpointer a, gconstpointer b)
 
 	return (ai->number == bi->number) ? 0 : 1;
 }
-
+// 将一个 package 结构加入到 nodeid 这个 node 结构
 void add_package_to_node(struct topo_obj *p, int nodeid)
 {
 	struct topo_obj *node;
@@ -170,7 +170,7 @@ void add_package_to_node(struct topo_obj *p, int nodeid)
 	}
 }
 
-// 打印 numa_node 节点的信息包括 number 和 mask
+// 打印 numa_node 节点的信息包括 number 和 cpu mask
 // __attribute__((unused)) 表示该函数或变量可能不使用，这个属性可以避免编译器产生警告信息
 void dump_numa_node_info(struct topo_obj *d, void *unused __attribute__((unused)))
 {

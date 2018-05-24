@@ -1,22 +1,22 @@
-/* 
+/*
  * Copyright (C) 2006, Intel Corporation
- * Copyright (C) 2012, Neil Horman <nhorman@tuxdriver.com> 
- * 
+ * Copyright (C) 2012, Neil Horman <nhorman@tuxdriver.com>
+ *
  * This file is part of irqbalance
  *
  * This program file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; version 2 of the License.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
  * for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program in a file named COPYING; if not, write to the 
- * Free Software Foundation, Inc., 
- * 51 Franklin Street, Fifth Floor, 
+ * along with this program in a file named COPYING; if not, write to the
+ * Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301 USA
  */
 #include "config.h"
@@ -32,7 +32,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifdef HAVE_GETOPT_LONG 
+#ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
 #endif
 
@@ -41,10 +41,13 @@
 #endif
 #include "irqbalance.h"
 
+// 告诉编译器在编译的时候不要优化掉这个变量
 volatile int keep_going = 1;
+// 3 种 mode
 int one_shot_mode;
 int debug_mode;
 int foreground_mode;
+
 int numa_avail;
 int need_rescan;
 unsigned int log_mask = TO_ALL;
@@ -59,8 +62,8 @@ long HZ;
 
 void sleep_approx(int seconds)
 {
-	struct timespec ts;
-	struct timeval tv;
+	struct timespec ts;    // 包含 s 和 ns
+	struct timeval tv;     // 包含 s 和 us
 	gettimeofday(&tv, NULL);
 	ts.tv_sec = seconds;
 	ts.tv_nsec = -tv.tv_usec*1000;
@@ -68,6 +71,7 @@ void sleep_approx(int seconds)
 		ts.tv_sec--;
 		ts.tv_nsec += 1000000000;
 	}
+	// ns 精度设置睡眠时间
 	nanosleep(&ts, NULL);
 }
 
@@ -179,16 +183,15 @@ static void parse_command_line(int argc, char **argv)
 #endif
 
 /*
- * This builds our object tree.  The Heirarchy is pretty straightforward
- * At the top are numa_nodes
- * All CPU packages belong to a single numa_node
- * All Cache domains belong to a CPU package
- * All CPU cores belong to a cache domain
+ * 创建 object tree，层次结构很明确
+ * 最顶层是 numa_nodes
+ * 所有的 CPU packages 属于一个 numa_node
+ * 所有的 Cache domains 属于一个 CPU package
+ * 所有的 CPU cores 属于一个 cache domain
  *
- * Objects are built in that order (top down)
+ * Objects 以上结构自定而下创建
+ * 一个 Object 的负载是它下面所有 objects 负载之和
  *
- * Object workload is the aggregate sum of the
- * workload of the objects below it
  */
 static void build_object_tree(void)
 {
@@ -261,10 +264,10 @@ int main(int argc, char** argv)
 		cpumask_parse_user(getenv("IRQBALANCE_BANNED_CPUS"), strlen(getenv("IRQBALANCE_BANNED_CPUS")), banned_cpus);
 	}
 
-	if (getenv("IRQBALANCE_ONESHOT")) 
+	if (getenv("IRQBALANCE_ONESHOT"))
 		one_shot_mode=1;
 
-	if (getenv("IRQBALANCE_DEBUG")) 
+	if (getenv("IRQBALANCE_DEBUG"))
 		debug_mode=1;
 
 	/*
@@ -276,7 +279,7 @@ int main(int argc, char** argv)
 
 	if (numa_available() > -1) {
 		numa_avail = 1;
-	} else 
+	} else
 		log(TO_CONSOLE, LOG_INFO, "This machine seems not NUMA capable.\n");
 
 	if (banscript) {
@@ -367,14 +370,14 @@ int main(int argc, char** argv)
 			clear_work_stats();
 			parse_proc_interrupts();
 			parse_proc_stat();
-		} 
+		}
 
-		if (cycle_count)	
+		if (cycle_count)
 			update_migration_status();
 
 		calculate_placement();
 		activate_mappings();
-	
+
 		if (debug_mode)
 			dump_tree();
 		if (one_shot_mode)
