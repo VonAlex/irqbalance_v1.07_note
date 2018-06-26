@@ -106,12 +106,14 @@ static int is_banned_irq(int irq)
 	return entry ? 1:0;
 }
 
-			
+
 /*
  * Inserts an irq_info struct into the intterupts_db list
- * devpath points to the device directory in sysfs for the 
+ * devpath points to the device directory in sysfs for the
  * related device
  */
+//  将 irq_info 结构体插入到 intterupts_db list 中
+//  devpath 指向文件系统中相关设备的目录, 如 /sys/devices/pci0000:80/0000:80:04.7
 static struct irq_info *add_one_irq_to_db(const char *devpath, int irq, struct user_irq_policy *pol)
 {
 	int class = 0;
@@ -129,12 +131,13 @@ static struct irq_info *add_one_irq_to_db(const char *devpath, int irq, struct u
 	 * First check to make sure this isn't a duplicate entry
 	 */
 	find.irq = irq;
-	entry = g_list_find_custom(interrupts_db, &find, compare_ints);
-	if (entry) {
+	entry = g_list_find_custom(interrupts_db, &find, compare_ints);、
+	if (entry) { // interrupts_db 已经有了这个 irq 相关信息了，直接返回
 		log(TO_CONSOLE, LOG_INFO, "DROPPING DUPLICATE ENTRY FOR IRQ %d on path %s\n", irq, devpath);
 		return NULL;
 	}
 
+    // 检查是否被 ban
 	if (is_banned_irq(irq)) {
 		log(TO_ALL, LOG_INFO, "SKIPPING BANNED IRQ %d\n", irq);
 		return NULL;
@@ -149,18 +152,15 @@ static struct irq_info *add_one_irq_to_db(const char *devpath, int irq, struct u
 
 	interrupts_db = g_list_append(interrupts_db, new);
 
-	sprintf(path, "%s/class", devpath);
-
+	sprintf(path, "%s/class", devpath); // 如 /sys/devices/pci0000:80/0000:80:04.7/class，设一个16进制的数
 	fd = fopen(path, "r");
-
 	if (!fd) {
 		perror("Can't open class file: ");
 		goto get_numa_node;
 	}
 
-	rc = fscanf(fd, "%x", &class);
+	rc = fscanf(fd, "%x", &class); // 读入16进制整数
 	fclose(fd);
-
 	if (!rc)
 		goto get_numa_node;
 
@@ -181,7 +181,7 @@ static struct irq_info *add_one_irq_to_db(const char *devpath, int irq, struct u
 get_numa_node:
 	numa_node = -1;
 	if (numa_avail) {
-		sprintf(path, "%s/numa_node", devpath);
+		sprintf(path, "%s/numa_node", devpath); // 获取 numa node 值
 		fd = fopen(path, "r");
 		if (fd) {
 			rc = fscanf(fd, "%d", &numa_node);
@@ -221,6 +221,8 @@ assign_affinity_hint:
 	fclose(fd);
 	if (ret <= 0)
 		goto out;
+
+	// 将字符串转换成位图并赋值给affinity_hint
 	cpumask_parse_user(lcpu_mask, ret, new->affinity_hint);
 	free(lcpu_mask);
 out:
@@ -270,7 +272,7 @@ static void parse_user_policy_key(char *buf, struct user_irq_policy *pol)
 		else
 			pol->level = idx;
 	} else if (!strcasecmp("numa_node", key)) {
-		idx = strtoul(value, NULL, 10);	
+		idx = strtoul(value, NULL, 10);
 		if (!get_numa_node(idx)) {
 			log(TO_ALL, LOG_WARNING, "NUMA node %d doesn't exist\n",
 				idx);
@@ -280,7 +282,7 @@ static void parse_user_policy_key(char *buf, struct user_irq_policy *pol)
 		pol->numa_node_set = 1;
 	} else
 		log(TO_ALL, LOG_WARNING, "Unknown key returned, ignoring: %s\n", key);
-	
+
 }
 
 /*
@@ -288,6 +290,7 @@ static void parse_user_policy_key(char *buf, struct user_irq_policy *pol)
  * aspects for a given irq.  A value of -1 in a given field indicates no
  * policy was given and that system defaults should be used
  */
+// 根据用户的策略脚本来设置中断策略
 static void get_irq_user_policy(char *path, int irq, struct user_irq_policy *pol)
 {
 	char *cmd;
@@ -295,7 +298,7 @@ static void get_irq_user_policy(char *path, int irq, struct user_irq_policy *pol
 	char buffer[128];
 	char *brc;
 
-	memset(pol, -1, sizeof(struct user_irq_policy));
+	memset(pol, -1, sizeof(struct user_irq_policy)); //  初始化
 
 	/* Return defaults if no script was given */
 	if (!polscript)
@@ -331,7 +334,7 @@ static int check_for_irq_ban(char *path, int irq)
 	cmd = alloca(strlen(path)+strlen(banscript)+32);
 	if (!cmd)
 		return 0;
-	
+
 	sprintf(cmd, "%s %s %d > /dev/null",banscript, path, irq);
 	rc = system(cmd);
 
@@ -367,7 +370,7 @@ static void build_one_dev_entry(const char *dirname)
 
 	sprintf(path, "%s/%s/msi_irqs", SYSDEV_DIR, dirname);
 	sprintf(devpath, "%s/%s", SYSDEV_DIR, dirname);
-	
+
 	msidir = opendir(path);
 
 	if (msidir) {
@@ -375,7 +378,7 @@ static void build_one_dev_entry(const char *dirname)
 			entry = readdir(msidir);
 			if (!entry)
 				break;
-			irqnum = strtol(entry->d_name, NULL, 10);
+			irqnum = strtol(entry->d_name, NULL, 10); // /sys/devices/pci0000:00/0000:00:04.1/msi_irqs/# 获得 irq 号
 			if (irqnum) {
 				new = get_irq_info(irqnum);
 				if (new)
@@ -405,6 +408,7 @@ static void build_one_dev_entry(const char *dirname)
 	/*
 	 * no pci device has irq 0
 	 */
+	/*对于传统中断而言，一个设备只有一个int中断号，如果该中断未设置中断策略，便设置并加入中断链表中 */
 	if (irqnum) {
 		new = get_irq_info(irqnum);
 		if (new)
@@ -445,11 +449,11 @@ void free_irq_db(void)
 
 static void add_missing_irq(struct irq_info *info, void *unused __attribute__((unused)))
 {
-	struct irq_info *lookup = get_irq_info(info->irq);
+	struct irq_info *lookup = get_irq_info(info->irq); // 从 list 中拿出相应 num 编号的 irq 结构
 
 	if (!lookup)
 		add_new_irq(info->irq, info);
-	
+
 }
 
 
@@ -460,10 +464,10 @@ void rebuild_irq_db(void)
 	GList *tmp_irqs = NULL;
 
 	free_irq_db();
-		
-	tmp_irqs = collect_full_irq_list();
 
-	devdir = opendir(SYSDEV_DIR);
+	tmp_irqs = collect_full_irq_list(); // 中断结构体 list
+
+	devdir = opendir(SYSDEV_DIR); // /sys/bus/pci/devices 目录， pci 设备列表
 	if (!devdir)
 		return;
 

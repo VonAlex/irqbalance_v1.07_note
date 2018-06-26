@@ -38,7 +38,7 @@
 
 GList *numa_nodes = NULL;
 
-static struct topo_obj unspecified_node_template = {  // 模板
+static struct topo_obj unspecified_node_template = {  // 模板，初始化
 	.load = 0,
 	.number = -1,
 	.obj_type = OBJ_TYPE_NODE,
@@ -73,11 +73,11 @@ static void add_one_node(const char *nodename)
 	if (ferror(f)) {
 		cpus_clear(new->mask);
 	} else {
-		ret = getline(&cpustr, &blen, f);               // cpustr 得到一个 hex 的字符串，比如 ffff,ffffffff
+		ret = getline(&cpustr, &blen, f);               // cpustr 得到一个 hex 的字符串
 		if (ret <= 0) {
 			cpus_clear(new->mask);
 		} else {
-			cpumask_parse_user(cpustr, ret, new->mask); // 将 cpustr 映射到 bitmap 中
+			cpumask_parse_user(cpustr, ret, new->mask); // 将 cpustr (如 ffff,ffffffff) 解析到 bitmap 中
 			free(cpustr);
 		}
 	}
@@ -120,7 +120,7 @@ void build_numa_node_list(void)
 		if (!entry)
 			break;
 		if ((entry->d_type == DT_DIR) && (strstr(entry->d_name, "node"))) { // 名字包含 node 的目录
-			add_one_node(entry->d_name);
+			add_one_node(entry->d_name); // node0 或者 node1
 		}
 	} while (entry);
 	closedir(dir);

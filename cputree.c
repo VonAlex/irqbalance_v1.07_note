@@ -151,7 +151,7 @@ static struct topo_obj* add_cpu_to_cache_domain(struct topo_obj *cpu,
 	return cache;
 }
 
-static void do_one_cpu(char *path)
+static void do_one_cpu(char *path)  // path = "/sys/devices/system/cpu/cpu0" 等
 {
 	struct topo_obj *cpu;
 	FILE *file;
@@ -253,13 +253,13 @@ static void do_one_cpu(char *path)
 	} while(!cache_stat); // 遍历 L1 ~ L3 级缓存
 
 	if (max_cache_index > 0) {
-		snprintf(new_path, PATH_MAX, "%s/cache/index%d/shared_cpu_map", path, max_cache_index);
+		snprintf(new_path, PATH_MAX, "%s/cache/index%d/shared_cpu_map", path, max_cache_index); // L3 级别缓存
 		file = fopen(new_path, "r");
 		if (file) {
 			char *line = NULL;
 			size_t size = 0;
 			if (getline(&line, &size, file))
-				cpumask_parse_user(line, strlen(line), cache_mask); // L3 cache_mask， L3 被多个 core 共享
+				cpumask_parse_user(line, strlen(line), cache_mask); // L3 存在于物理核中， 被多个 core 共享
 			fclose(file);
 			free(line);
 		}
@@ -372,7 +372,7 @@ void parse_cpu_tree(void)
 	DIR *dir;
 	struct dirent *entry;
 
-	cpus_complement(unbanned_cpus, banned_cpus); // banned_cpus 按位取反得到 unbanned_cpus
+	cpus_complement(unbanned_cpus, banned_cpus); // banned_cpus 按位取反得到 unbanned_cpus， banned_cpus 通过环境变量 IRQBALANCE_BANNED_CPUS 获得
 
 	dir = opendir("/sys/devices/system/cpu");
 	if (!dir)
@@ -382,8 +382,7 @@ void parse_cpu_tree(void)
 		char pad;
 		entry = readdir(dir);
 		/*
- 		 * We only want to count real cpus, not cpufreq and
- 		 * cpuidle
+		  * cpufreq/cpuidle 目录不统计
  		 */
 		if (entry &&
 		    sscanf(entry->d_name, "cpu%d%c", &num, &pad) == 1 &&
@@ -397,7 +396,6 @@ void parse_cpu_tree(void)
 
 	if (debug_mode)
 		dump_tree();
-
 }
 
 

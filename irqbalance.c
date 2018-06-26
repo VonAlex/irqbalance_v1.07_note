@@ -41,8 +41,9 @@
 #endif
 #include "irqbalance.h"
 
-// 告诉编译器在编译的时候不要优化掉这个变量
+// volatile 告诉编译器在编译的时候不要优化掉这个变量
 volatile int keep_going = 1;
+
 // 3 种 mode
 int one_shot_mode;
 int debug_mode;
@@ -189,7 +190,7 @@ static void parse_command_line(int argc, char **argv)
  * 所有的 Cache domains 属于一个 CPU package
  * 所有的 CPU cores 属于一个 cache domain
  *
- * Objects 以上结构自定而下创建
+ * objects 以上结构自顶而下创建
  * 一个 Object 的负载是它下面所有 objects 负载之和
  *
  */
@@ -212,6 +213,7 @@ static void dump_object_tree(void)
 	for_each_object(numa_nodes, dump_numa_node_info, NULL);
 }
 
+// 将中断加入到迁移表中
 void force_rebalance_irq(struct irq_info *info, void *data __attribute__((unused)))
 {
 	if (info->level == BALANCE_NONE)
@@ -273,11 +275,14 @@ int main(int argc, char** argv)
 	/*
  	 * If we are't in debug mode, don't dump anything to the console
  	 * note that everything goes to the console before we check this
+	  *
+	  * 如果不是 debug 模式， 不在 console 端打印出任何东西，
+	  * 在我们检查之前，所有的东西还是要打印到 console 端的
  	 */
 	if (!debug_mode)
 		log_mask &= ~TO_CONSOLE;
 
-	if (numa_available() > -1) {
+	if (numa_available() > -1) {  // 默认 -1
 		numa_avail = 1;
 	} else
 		log(TO_CONSOLE, LOG_INFO, "This machine seems not NUMA capable.\n");
@@ -287,7 +292,7 @@ int main(int argc, char** argv)
 		log(TO_ALL, LOG_WARNING, "%s\n", note);
 	}
 
-	HZ = sysconf(_SC_CLK_TCK);
+	HZ = sysconf(_SC_CLK_TCK); // the number of clock ticks per second，时钟频率
 	if (HZ == -1) {
 		log(TO_ALL, LOG_WARNING, "Unable to determin HZ defaulting to 100\n");
 		HZ = 100;
@@ -299,11 +304,12 @@ int main(int argc, char** argv)
 	sigaction(SIGINT, &action, NULL);
 
 	build_object_tree();
-	if (debug_mode)
+	if (debug_mode)   // debug 模式
 		dump_object_tree();
 
 
 	/* On single core UP systems irqbalance obviously has no work to do */
+	// 单核 cpu 没必要做 irqbalance
 	if (core_count<2) {
 		char *msg = "Balancing is ineffective on systems with a "
 			    "single cpu.  Shutting down\n";
@@ -345,11 +351,9 @@ int main(int argc, char** argv)
 	hupaction.sa_flags = 0;
 	sigaction(SIGHUP, &hupaction, NULL);
 
-	while (keep_going) {
+	while (keep_going) { //  循环执行，时间周期为 SLEEP_INTERVAL
 		sleep_approx(SLEEP_INTERVAL);
 		log(TO_CONSOLE, LOG_INFO, "\n\n\n-----------------------------------------------------------------------------\n");
-
-
 		clear_work_stats();
 		parse_proc_interrupts();
 		parse_proc_stat();
